@@ -1,4 +1,4 @@
-from pytube import YouTube
+from pytubefix import YouTube
 import os
 import subprocess
 import moviepy.editor as mpe
@@ -12,13 +12,23 @@ def main():
     qualaudio = []
     
     link = input("Nome do vídeo: ")
-    link = link.replace(" ", "_")
+    #link = link.replace(" ", "_")
     
     # Pesquisa o vídeo no YouTube
-    videosSearch = VideosSearch(link, limit = 1)
-    link = videosSearch.result()["result"][0]["link"]
-    
-    filename = input("Nome do vídeo final: ")
+    videosSearch = VideosSearch(link, limit = 20)
+    if not videosSearch.result()["result"]:
+        print("Nenhum resultado encontrado.")
+        return
+    else:
+        for count, video in enumerate(videosSearch.result()["result"], start=1):
+            print(f"{count}. {video['title']} ({video['link']})")
+        
+    videoChoice = int(input("Escolha o número do vídeo que deseja baixar: "))
+    link = videosSearch.result()["result"][videoChoice - 1]["link"]
+
+
+    #filename = input("Nome do vídeo final: ")
+    filename = videosSearch.result()["result"][videoChoice - 1]["title"]
     onlyaudio = int(input("Apenas áudio digite 1, para vídeo com melhor qualidade digite 0, caso queira vídeo normal digite qualquer número: "))
     
     print(link)
