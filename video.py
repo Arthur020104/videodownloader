@@ -1,45 +1,66 @@
-from pytubefix import YouTube
+from pytubefix import YouTube, Playlist
+from pytubefix.cli import on_progress
 import os
 import subprocess
 import moviepy.editor as mpe
-from youtubesearchpython import VideosSearch  # Importa a biblioteca para pesquisar vídeos no YouTube
+from youtubesearchpython import VideosSearch# Importa a biblioteca para pesquisar vídeos e playlists no YouTube
 
-def main():
-    audio = 0
-    video = 0
-    audioo = ''
-    qual = []
-    qualaudio = []
-    
-    link = input("Nome do vídeo: ")
-    #link = link.replace(" ", "_")
-    
+def main(path):
+    typeOfDownload = requestUntilInput("Tipo de download (0 - Vídeo com melhor qualidade, 1 - Apenas áudio, 2 - Playlist): ", "Por favor, insira um número 0, 1 ou 2.", int)
+
+    videoLink = requestUntilInput("Nome do vídeo: " if typeOfDownload != 2 else "URL da playlist: ", "Por favor, insira um nome válido." if typeOfDownload != 2 else "Por favor, insira um URL válido.", str)
+
+
     # Pesquisa o vídeo no YouTube
-    videosSearch = VideosSearch(link, limit = 20)
-    if not videosSearch.result()["result"]:
-        print("Nenhum resultado encontrado.")
-        return
-    else:
-        for count, video in enumerate(videosSearch.result()["result"], start=1):
-            print(f"{count}. {video['title']} ({video['link']})")
+    if typeOfDownload != 2:
+        videosSearch = VideosSearch(videoLink, limit = 20)
+        if not videosSearch.result()["result"]:
+            print("Nenhum resultado encontrado.")
+            return
+        else:
+            for count, video in enumerate(videosSearch.result()["result"], start=1):
+                print(f"{count}. {video['title']} ({video['link']})")
+
+        videoChoice = requestUntilInput("Escolha o número do vídeo que deseja baixar: ", "Por favor, insira um número válido.", int)
+        videoLink = videosSearch.result()["result"][videoChoice - 1]["link"]
+
+
+    yt = YouTube(videoLink, on_progress_callback=on_progress) if typeOfDownload != 2 else  Playlist(videoLink)
         
-    videoChoice = int(input("Escolha o número do vídeo que deseja baixar: "))
-    link = videosSearch.result()["result"][videoChoice - 1]["link"]
+    if not isinstance(yt, Playlist):
+        yt = [yt]
+    else:
+        yt = yt.videos
 
-
-    #filename = input("Nome do vídeo final: ")
-    filename = videosSearch.result()["result"][videoChoice - 1]["title"]
-    onlyaudio = int(input("Apenas áudio digite 1, para vídeo com melhor qualidade digite 0, caso queira vídeo normal digite qualquer número: "))
+    quality = 3 #high quality with audio
+    if typeOfDownload in [0, 2]:
+        quality = requestUntilInput("Qualidade (0 - Muito Alta(tempo de espera alto), 1 - Alta: ", "Por favor, insira um número válido.", int)
+        quality = quality if quality != 1 else 3
     
-    print(link)
-    linkstream = YouTube(link).streams
+    for video in yt:
+        videoTitle = video.title.replace('|', '').replace('"', '').replace('?', '').replace('*', '').replace('<', '').replace('>', '').replace(':', '').replace('/', '').replace('\\', '')
+        print(f"Baixando: {videoTitle}")
+        downloadVideo(video.streams, quality, f"{path}/Videos/", videoTitle)
+
+def requestUntilInput(prompt, messageError, typeOfInput):
+    while True:
+        try:
+            return typeOfInput(input(prompt))
+        except ValueError:
+            print(messageError)
+
+def downloadVideo(linkstream, onlyaudio, path, filename):
+    qualVideo = []
+    qualAudio = []
+
     audioo = '' if onlyaudio in [0, 1] else 'progressive="True"'
-    
+
+    #Refatorar esta parte, TODO revisao do codigo(nao lembro como funciona)
     for x in linkstream:
         z = str(x)
         try:
             l = int(retornarpesquisa(z, 'res="', audioo))
-            qual.append(l)
+            qualVideo.append(l)
         except:
             pass
             
@@ -47,20 +68,20 @@ def main():
         z = str(x)
         try:
             l = int(retornarpesquisa(z, 'abr="', 'type="audio"'))
-            qualaudio.append(l)
+            qualAudio.append(l)
         except:
             pass
             
     for x in linkstream:
         z = str(x)
-        k = max(qual)
+        k = max(qualVideo)
         if (str(k) + 'p') in z:
             video = x
             break
             
     for x in linkstream:
         z = str(x)
-        k = max(qualaudio)
+        k = max(qualAudio)
         if (str(k) + 'kbps') in z:
             audio = x
             break
@@ -71,24 +92,25 @@ def main():
     videoptype = videoptype[0:videoptype.find('"')]
     
     if onlyaudio == 1:
-        audio.download(f"{path}/Videos", filename=filename + '.' + audiotype)
+        audio.download(path + "Videos", filename=filename + '.' + audiotype)
         if audiotype != 'mp3':
-            src = (f"{path}/Videos/" + filename + '.' + audiotype)
-            dst = (f"{path}/Videos/" + filename + '.mp3')
+            src = (path + filename + '.' + audiotype)
+            dst = (path + filename + '.mp3')
             subprocess.run(f'ffmpeg -i "{src}" "{dst}"', shell=True, capture_output=False)
-            os.remove(f"{path}/Videos/" + filename + '.' + audiotype)
+            os.remove(path + filename + '.' + audiotype)
         return
     elif onlyaudio == 0:
-        audio.download(f"{path}/Videos", filename=filename + 'propad.' + audiotype)
-        video.download(f"{path}/Videos", filename=filename + 'prop.' + videoptype)
-        my_clip = mpe.VideoFileClip(f"{path}/Videos/" + filename + 'prop.' + videoptype)
-        audio_background = mpe.AudioFileClip(f"{path}/Videos/" + filename + 'propad.' + audiotype)
+        audio.download(path, filename=filename + 'propad.' + audiotype)
+        video.download(path, filename=filename + 'prop.' + videoptype)
+        my_clip = mpe.VideoFileClip(path + filename + 'prop.' + videoptype)
+        audio_background = mpe.AudioFileClip(path + filename + 'propad.' + audiotype)
         final_clip = my_clip.set_audio(audio_background)
-        print(final_clip.write_videofile(f"{path}/Videos/" + filename + '.mp4'))
-        os.remove(f"{path}/Videos/" + filename + 'prop.' + videoptype)
-        os.remove(f"{path}/Videos/" + filename + 'propad.' + audiotype)
+        print(final_clip.write_videofile(path + filename + '.mp4'))
+        os.remove(path + filename + 'prop.' + videoptype)
+        os.remove(path + filename + 'propad.' + audiotype)
     else:
-        video.download(f"{path}/Videos", filename=filename + '.' + videoptype)
+        video.download(path, filename=filename + '.' + videoptype)
+
 
 def retornarpesquisa(frase, acao, audioo):
     location = frase.find(acao)
@@ -112,4 +134,4 @@ def retornarpesquisa(frase, acao, audioo):
 if __name__ == '__main__':
     login = os.getlogin()
     path = f"C:/Usuários/{login}/Área de Trabalho/" if os.path.exists(f"C:/Usuários/{login}/Área de Trabalho/") else f"C:/Users/{login}/OneDrive/Área de Trabalho/" if os.path.exists(f"C:/Users/{login}/OneDrive/Área de Trabalho/") else f"C:/Users/{login}/Desktop/"
-    main()
+    main(path)
