@@ -1,0 +1,4 @@
+git+https://github.com/JuanBindez/pytubefix
+moviepy==1.0.3
+youtube-search-python
+httpx==0.23.0
