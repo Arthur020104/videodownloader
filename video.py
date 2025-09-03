@@ -25,8 +25,8 @@ def main(path):
         videoLink = videosSearch.result()["result"][videoChoice - 1]["link"]
 
 
-    yt = YouTube(videoLink, on_progress_callback=on_progress) if typeOfDownload != 2 else  Playlist(videoLink)
-        
+    yt = YouTube(videoLink, client='WEB', use_oauth=True) if typeOfDownload != 2 else  Playlist(videoLink, client='WEB', use_oauth=True)
+
     if not isinstance(yt, Playlist):
         yt = [yt]
     else:
@@ -38,7 +38,7 @@ def main(path):
         quality = quality if quality != 1 else 3
     
     for video in yt:
-        videoTitle = video.title.replace('|', '').replace('"', '').replace('?', '').replace('*', '').replace('<', '').replace('>', '').replace(':', '').replace('/', '').replace('\\', '')
+        videoTitle = video.title#.replace('|', '').replace('"', '').replace('?', '').replace('*', '').replace('<', '').replace('>', '').replace(':', '').replace('/', '').replace('\\', '')
         print(f"Baixando: {videoTitle}")
         downloadVideo(video.streams, quality, f"{path}/Videos/", videoTitle)
 
